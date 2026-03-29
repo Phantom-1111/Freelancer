@@ -2,7 +2,7 @@ const Invoice = require('../models/Invoice');
 const Project = require('../models/Project');
 const Client = require('../models/Client');
 const TimeLog = require('../models/TimeLog');
-const PDFDocument = require('pdfkit');
+const pdfMake = require('pdfmake');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,6 +11,17 @@ const invoiceDir = path.join(__dirname, '../invoices');
 if (!fs.existsSync(invoiceDir)) {
   fs.mkdirSync(invoiceDir);
 }
+
+const fonts = {
+  Roboto: {
+    normal: path.join(__dirname, '../node_modules/pdfmake/build/fonts/Roboto/Roboto-Regular.ttf'),
+    bold: path.join(__dirname, '../node_modules/pdfmake/build/fonts/Roboto/Roboto-Medium.ttf'),
+    italics: path.join(__dirname, '../node_modules/pdfmake/build/fonts/Roboto/Roboto-Italic.ttf'),
+    bolditalics: path.join(__dirname, '../node_modules/pdfmake/build/fonts/Roboto/Roboto-MediumItalic.ttf'),
+  },
+};
+
+pdfMake.addFonts(fonts);
 
 /**
  * Generate an invoice PDF
@@ -34,73 +45,115 @@ const generateInvoicePDF = (invoiceData) => {
       const fileName = `invoice_${invoiceId}.pdf`;
       const filePath = path.join(invoiceDir, fileName);
 
-      const doc = new PDFDocument();
-      const stream = fs.createWriteStream(filePath);
+      const docDefinition = {
+        pageSize: 'A4',
+        pageMargins: [40, 40, 40, 40],
+        defaultStyle: {
+          font: 'Roboto',
+          fontSize: 12,
+        },
+        content: [
+          {
+            text: 'INVOICE',
+            style: 'invoiceTitle',
+          },
+          {
+            columns: [
+              [
+                { text: 'Bill To:', style: 'sectionHeader' },
+                { text: clientName },
+                { text: clientEmail },
+              ],
+              [
+                { text: `Invoice #: ${invoiceId}`, alignment: 'right' },
+                { text: `Date: ${new Date(generatedDate).toLocaleDateString()}`, alignment: 'right' },
+                { text: `Project: ${projectName}`, alignment: 'right' },
+              ],
+            ],
+          },
+          { text: ' ', margin: [0, 10] },
+          {
+            table: {
+              headerRows: 1,
+              widths: ['*', 70, 90, 90],
+              body: [
+                [
+                  { text: 'Description', style: 'tableHeader' },
+                  { text: 'Hours', style: 'tableHeader' },
+                  { text: 'Rate ($/h)', style: 'tableHeader' },
+                  { text: 'Amount', style: 'tableHeader' },
+                ],
+                [
+                  'Hours Worked',
+                  totalHours.toFixed(2),
+                  `$${hourlyRate.toFixed(2)}`,
+                  `$${totalAmount.toFixed(2)}`,
+                ],
+              ],
+            },
+            layout: {
+              fillColor: function (rowIndex) {
+                return rowIndex === 0 ? '#eeeeee' : null;
+              },
+            },
+          },
+          {
+            columns: [
+              { width: '*', text: '' },
+              {
+                width: 250,
+                table: {
+                  body: [
+                    ['Sub Total', `$${totalAmount.toFixed(2)}`],
+                    ['Total Amount Due', `$${totalAmount.toFixed(2)}`],
+                  ],
+                },
+                layout: 'noBorders',
+              },
+            ],
+            margin: [0, 10, 0, 0],
+          },
+          { text: ' ', margin: [0, 20] },
+          {
+            text: 'Thank you for your business!',
+            style: 'footer',
+          },
+          {
+            text: 'Payment is due within 30 days.',
+            style: 'footer',
+          },
+        ],
+        styles: {
+          invoiceTitle: {
+            fontSize: 26,
+            bold: true,
+            alignment: 'center',
+            margin: [0, 0, 0, 20],
+          },
+          sectionHeader: {
+            fontSize: 14,
+            bold: true,
+            margin: [0, 0, 0, 5],
+          },
+          tableHeader: {
+            bold: true,
+            fontSize: 12,
+          },
+          footer: {
+            fontSize: 10,
+            italics: true,
+            color: '#666666',
+            alignment: 'center',
+          },
+        },
+      };
 
-      doc.pipe(stream);
+      const pdfDoc = pdfMake.createPdf(docDefinition);
 
-      // Header
-      doc.fontSize(25).text('INVOICE', { align: 'center' });
-      doc.moveDown();
-
-      // Invoice details
-      doc.fontSize(12);
-      doc.text(`Invoice ID: ${invoiceId}`, { align: 'left' });
-      doc.text(
-        `Generated Date: ${new Date(generatedDate).toLocaleDateString()}`,
-        { align: 'left' }
-      );
-      doc.moveDown();
-
-      // Client details
-      doc.fontSize(14).text('Bill To:', { underline: true });
-      doc.fontSize(12);
-      doc.text(`Client: ${clientName}`);
-      doc.text(`Email: ${clientEmail}`);
-      doc.moveDown();
-
-      // Project details
-      doc.fontSize(14).text('Project Details:', { underline: true });
-      doc.fontSize(12);
-      doc.text(`Project Name: ${projectName}`);
-      doc.moveDown();
-
-      // Table header
-      doc.fontSize(12).text('Description', 50, 400, { width: 200 });
-      doc.text('Hours', 300, 400);
-      doc.text('Rate ($/h)', 380, 400);
-      doc.text('Amount', 470, 400);
-
-      // Separator
-      doc.moveTo(50, 420).lineTo(520, 420).stroke();
-
-      // Table data
-      const tableY = 440;
-      doc.text('Hours Worked', 50, tableY, { width: 200 });
-      doc.text(totalHours.toFixed(2), 300, tableY);
-      doc.text(`$${hourlyRate.toFixed(2)}`, 380, tableY);
-      doc.text(`$${totalAmount.toFixed(2)}`, 470, tableY);
-
-      // Separator
-      doc.moveTo(50, tableY + 30).lineTo(520, tableY + 30).stroke();
-
-      // Total
-      const totalY = tableY + 50;
-      doc.fontSize(14).text('Total Amount Due:', 300, totalY);
-      doc.text(`$${totalAmount.toFixed(2)}`, 470, totalY);
-
-      // Footer
-      doc.fontSize(10).text('Thank you for your business!', { align: 'center' }, 700);
-
-      doc.end();
-
-      stream.on('finish', () => {
-        resolve(fileName);
-      });
-
-      stream.on('error', (err) => {
-        reject(err);
-      });
+      pdfDoc
+        .write(filePath)
+        .then(() => resolve(fileName))
+        .catch((err) => reject(err));
     } catch (error) {
       reject(error);
     }
