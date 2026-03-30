@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
 import api from '../utils/api';
 import '../styles/dashboard.css';
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -53,38 +53,93 @@ const Dashboard = () => {
         const projectEarnings = {};
 
         timeLogs.data.timeLogs.forEach((log) => {
-          const projectName = log.projectId.name;
-          projectHours[projectName] = (projectHours[projectName] || 0) + log.durationHours;
+          if (log.projectId && log.projectId.name) {
+            const projectName = log.projectId.name;
+            projectHours[projectName] = (projectHours[projectName] || 0) + log.durationHours;
+          }
         });
 
         invoices.data.invoices.forEach((inv) => {
-          const projectName = inv.projectId.name;
-          projectEarnings[projectName] = (projectEarnings[projectName] || 0) + inv.totalAmount;
+          if (inv.projectId && inv.projectId.name) {
+            const projectName = inv.projectId.name;
+            projectEarnings[projectName] = (projectEarnings[projectName] || 0) + inv.totalAmount;
+          }
         });
 
         const projectLabels = Object.keys(projectHours);
 
+        // fetch monthly reports
+        const [monthlyHoursRes, monthlyEarningsRes] = await Promise.all([
+          api.get('/invoices/reports/monthly-hours'),
+          api.get('/invoices/reports/monthly-earnings'),
+        ]);
+
+        const months = [];
+        const hoursByMonthMap = {};
+        const earningsByMonthMap = {};
+
+        const toMonthKey = ({ year, month }) => `${year}-${String(month).padStart(2, '0')}`;
+
+        monthlyHoursRes.data.report.forEach((item) => {
+          const key = toMonthKey(item);
+          months.push(key);
+          hoursByMonthMap[key] = item.totalHours;
+        });
+
+        monthlyEarningsRes.data.report.forEach((item) => {
+          const key = toMonthKey(item);
+          if (!months.includes(key)) months.push(key);
+          earningsByMonthMap[key] = item.totalEarnings;
+        });
+
+        const sortedMonths = [...new Set(months)].sort();
+
         setChartData({
-          hoursChart: {
+          projectHoursChart: {
             labels: projectLabels,
             datasets: [
               {
-                label: 'Hours Worked',
-                data: projectLabels.map((name) => projectHours[name]),
+                label: 'Hours Worked per Project',
+                data: projectLabels.map((name) => projectHours[name] || 0),
                 backgroundColor: '#3498db',
                 borderColor: '#2c3e50',
                 borderWidth: 1,
               },
             ],
           },
-          earningsChart: {
+          projectEarningsChart: {
             labels: projectLabels,
             datasets: [
               {
-                label: 'Earnings',
-                data: projectLabels.map((name) => projectEarnings[name]),
-                backgroundColor: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6']
-                  .slice(0, projectLabels.length),
+                label: 'Earnings per Project',
+                data: projectLabels.map((name) => projectEarnings[name] || 0),
+                backgroundColor: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'].slice(0, projectLabels.length),
+              },
+            ],
+          },
+          monthlyHoursChart: {
+            labels: sortedMonths,
+            datasets: [
+              {
+                label: 'Monthly Hours',
+                data: sortedMonths.map((key) => hoursByMonthMap[key] || 0),
+                backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                borderColor: 'rgba(52, 152, 219, 1)',
+                borderWidth: 2,
+              },
+            ],
+          },
+          monthlyEarningsChart: {
+            labels: sortedMonths,
+            datasets: [
+              {
+                label: 'Monthly Earnings',
+                data: sortedMonths.map((key) => earningsByMonthMap[key] || 0),
+                backgroundColor: 'rgba(46, 204, 113, 0.3)',
+                borderColor: 'rgba(46, 204, 113, 1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
               },
             ],
           },
@@ -141,7 +196,7 @@ const Dashboard = () => {
           <div className="chart-box">
             <h3>Hours per Project</h3>
             <Bar
-              data={chartData.hoursChart}
+              data={chartData.projectHoursChart}
               options={{
                 responsive: true,
                 plugins: {
@@ -154,9 +209,39 @@ const Dashboard = () => {
           </div>
 
           <div className="chart-box">
-            <h3>Earnings Distribution</h3>
-            <Pie
-              data={chartData.earningsChart}
+            <h3>Earnings per Project</h3>
+            <Bar
+              data={chartData.projectEarningsChart}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                },
+              }}
+            />
+          </div>
+
+          <div className="chart-box">
+            <h3>Monthly Hours</h3>
+            <Line
+              data={chartData.monthlyHoursChart}
+              options={{
+                responsive: true,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                },
+              }}
+            />
+          </div>
+
+          <div className="chart-box">
+            <h3>Monthly Earnings</h3>
+            <Line
+              data={chartData.monthlyEarningsChart}
               options={{
                 responsive: true,
                 plugins: {

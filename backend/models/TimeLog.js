@@ -9,16 +9,30 @@ const timeLogSchema = new mongoose.Schema(
     },
     startTime: {
       type: Date,
-      required: true,
+      required: false,
     },
     endTime: {
       type: Date,
-      required: true,
+      required: false,
+    },
+    totalDuration: {
+      type: Number,
+      default: 0, // minutes
+      min: 0,
     },
     durationHours: {
       type: Number,
-      required: true,
+      default: 0,
       min: 0,
+    },
+    status: {
+      type: String,
+      enum: ['running', 'paused', 'stopped'],
+      default: 'stopped',
+    },
+    description: {
+      type: String,
+      default: '',
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

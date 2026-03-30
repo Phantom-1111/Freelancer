@@ -1,6 +1,10 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const {
+  startTimeLog,
+  pauseTimeLog,
+  resumeTimeLog,
+  stopTimeLog,
   createTimeLog,
   getAllTimeLogs,
   getTimeLogsByProject,
@@ -13,8 +17,36 @@ const router = express.Router();
 router.use(authMiddleware);
 
 /**
+ * @route   POST /api/timelogs/start
+ * @desc    Start a timer for a project
+ * @access  Private
+ */
+router.post('/start', startTimeLog);
+
+/**
+ * @route   PUT /api/timelogs/:id/pause
+ * @desc    Pause a running timer
+ * @access  Private
+ */
+router.put('/:id/pause', pauseTimeLog);
+
+/**
+ * @route   PUT /api/timelogs/:id/resume
+ * @desc    Resume a paused timer
+ * @access  Private
+ */
+router.put('/:id/resume', resumeTimeLog);
+
+/**
+ * @route   PUT /api/timelogs/:id/stop
+ * @desc    Stop the timer and finalize the entry
+ * @access  Private
+ */
+router.put('/:id/stop', stopTimeLog);
+
+/**
  * @route   POST /api/timelogs
- * @desc    Create a new time log
+ * @desc    Create a new time log (manual entry)
  * @access  Private
  */
 router.post('/', createTimeLog);

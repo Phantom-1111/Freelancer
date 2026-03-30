@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
 const Invoice = require('../models/Invoice');
 const Project = require('../models/Project');
 const Client = require('../models/Client');
 const TimeLog = require('../models/TimeLog');
 const pdfMake = require('pdfmake');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
@@ -342,9 +344,179 @@ const downloadInvoicePDF = async (req, res) => {
   }
 };
 
+/**
+ * Update invoice status (Pending, Paid, Overdue)
+ * @route   PUT /api/invoices/:id/status
+ * @access  Private
+ */
+const updateInvoiceStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.userId;
+
+    if (!['Pending', 'Paid', 'Overdue'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const invoice = await Invoice.findOne({ _id: id, userId });
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    invoice.status = status;
+    await invoice.save();
+
+    res.json({ message: 'Invoice status updated', invoice });
+  } catch (error) {
+    console.error('Update invoice status error:', error);
+    res.status(500).json({ message: 'Error updating invoice status' });
+  }
+};
+
+/**
+ * Monthly hours report
+ * @route   GET /api/invoices/reports/monthly-hours
+ * @access  Private
+ */
+const getMonthlyHoursReport = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const report = await Invoice.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+          totalHours: { $sum: '$totalHours' },
+        },
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+      {
+        $project: {
+          _id: 0,
+          year: '$_id.year',
+          month: '$_id.month',
+          totalHours: 1,
+        },
+      },
+    ]);
+
+    res.json({ message: 'Monthly hours report', report });
+  } catch (error) {
+    console.error('Get monthly hours report error:', error);
+    res.status(500).json({ message: 'Error generating monthly hours report' });
+  }
+};
+
+/**
+ * Monthly earnings report
+ * @route   GET /api/invoices/reports/monthly-earnings
+ * @access  Private
+ */
+const getMonthlyEarningsReport = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const report = await Invoice.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+          totalEarnings: { $sum: '$totalAmount' },
+        },
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+      {
+        $project: {
+          _id: 0,
+          year: '$_id.year',
+          month: '$_id.month',
+          totalEarnings: 1,
+        },
+      },
+    ]);
+
+    res.json({ message: 'Monthly earnings report', report });
+  } catch (error) {
+    console.error('Get monthly earnings report error:', error);
+    res.status(500).json({ message: 'Error generating monthly earnings report' });
+  }
+};
+
+/**
+ * Send invoice PDF to client email
+ * @route   POST /api/invoices/:id/email
+ * @access  Private
+ */
+const sendInvoiceEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const invoice = await Invoice.findOne({ _id: id, userId }).populate({
+      path: 'projectId',
+      populate: {
+        path: 'clientId',
+        select: 'name email',
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+
+    const clientEmail = invoice.projectId?.clientId?.email;
+    if (!clientEmail) {
+      return res.status(400).json({ message: 'Client email not available' });
+    }
+
+    const fileName = `invoice_${id}.pdf`;
+    const filePath = path.join(invoiceDir, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'PDF file not found for invoice' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.ethereal.email',
+      port: Number(process.env.EMAIL_PORT || 587),
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: clientEmail,
+      subject: `Invoice ${invoice._id} - ${invoice.projectId.name}`,
+      text: `Dear ${invoice.projectId?.clientId?.name || 'Client'},\n\nPlease find attached your invoice for project ${invoice.projectId.name}.\n\nTotal amount due: $${invoice.totalAmount.toFixed(2)}.\n\nRegards,\nYour freelancer`,
+      attachments: [
+        {
+          filename: fileName,
+          path: filePath,
+        },
+      ],
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    res.json({ message: 'Invoice sent by email', info });
+  } catch (error) {
+    console.error('Send invoice email error:', error);
+    res.status(500).json({ message: 'Error sending invoice email' });
+  }
+};
+
 module.exports = {
   generateInvoice,
   getAllInvoices,
   getInvoiceById,
   downloadInvoicePDF,
+  updateInvoiceStatus,
+  getMonthlyHoursReport,
+  getMonthlyEarningsReport,
+  sendInvoiceEmail,
 };

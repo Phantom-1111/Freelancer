@@ -67,8 +67,15 @@ function App() {
             }
           />
 
-          {/* Redirect root to dashboard */}
-          <Route path="/" element={<Dashboard />} />
+          {/* Redirect root to login or dashboard based on auth */}
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>

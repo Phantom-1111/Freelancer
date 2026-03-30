@@ -78,6 +78,27 @@ const Invoices = () => {
     }
   };
 
+  const handleMarkPaid = async (invoiceId) => {
+    try {
+      await api.put(`/invoices/${invoiceId}/status`, { status: 'Paid' });
+      alert('Invoice marked as Paid');
+      fetchData();
+    } catch (err) {
+      alert('Error updating invoice status');
+      console.error(err);
+    }
+  };
+
+  const handleSendInvoice = async (invoiceId) => {
+    try {
+      await api.post(`/invoices/${invoiceId}/email`);
+      alert('Invoice email sent successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error sending invoice email');
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return <div className="invoices-container"><p>Loading...</p></div>;
   }
@@ -108,30 +129,53 @@ const Invoices = () => {
                 <th>Project</th>
                 <th>Client</th>
                 <th>Hours</th>
-                <th>Total Amount</th>
+                <th>Total</th>
+                <th>Status</th>
                 <th>Date</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice) => (
-                <tr key={invoice._id}>
-                  <td>{invoice._id.substring(0, 8)}...</td>
-                  <td>{invoice.projectId.name}</td>
-                  <td>{invoice.projectId.clientId.name}</td>
-                  <td>{invoice.totalHours.toFixed(2)}</td>
-                  <td>${invoice.totalAmount.toFixed(2)}</td>
-                  <td>{new Date(invoice.generatedDate).toLocaleDateString()}</td>
-                  <td>
-                    <button
-                      onClick={() => handleDownloadPDF(invoice._id)}
-                      className="btn-download"
-                    >
-                      Download PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {invoices.map((invoice) => {
+                const status = invoice.status || 'Pending';
+                const statusColor =
+                  status === 'Paid' ? '#2ecc71' : status === 'Overdue' ? '#e74c3c' : '#f1c40f';
+
+                // Handle null projectId (deleted project)
+                if (!invoice.projectId) {
+                  return null;
+                }
+
+                const projectName = invoice.projectId.name || 'Unknown Project';
+                const clientName = invoice.projectId.clientId?.name || 'Unknown Client';
+
+                return (
+                  <tr key={invoice._id}>
+                    <td>{invoice._id.substring(0, 8)}...</td>
+                    <td>{projectName}</td>
+                    <td>{clientName}</td>
+                    <td>{invoice.totalHours.toFixed(2)}</td>
+                    <td>${invoice.totalAmount.toFixed(2)}</td>
+                    <td>
+                      <span className="status-badge" style={{ backgroundColor: statusColor }}>
+                        {status}
+                      </span>
+                    </td>
+                    <td>{new Date(invoice.generatedDate).toLocaleDateString()}</td>
+                    <td>
+                      <button onClick={() => handleDownloadPDF(invoice._id)} className="btn-download">
+                        Download PDF
+                      </button>
+                      <button onClick={() => handleMarkPaid(invoice._id)} className="btn-paid">
+                        Mark as Paid
+                      </button>
+                      <button onClick={() => handleSendInvoice(invoice._id)} className="btn-email">
+                        Send Invoice
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -153,11 +197,14 @@ const Invoices = () => {
                   required
                 >
                   <option value="">Choose a project...</option>
-                  {projects.map((project) => (
-                    <option key={project._id} value={project._id}>
-                      {project.name} ({project.clientId.name})
-                    </option>
-                  ))}
+                  {projects.map((project) => {
+                    const clientName = project.clientId?.name || 'Unknown Client';
+                    return (
+                      <option key={project._id} value={project._id}>
+                        {project.name} ({clientName})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

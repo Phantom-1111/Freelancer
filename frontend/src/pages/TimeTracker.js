@@ -5,9 +5,11 @@ import '../styles/timetracker.css';
 const TimeTracker = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [isRunning, setIsRunning] = useState(false);
+  const [timerSessionId, setTimerSessionId] = useState(null);
+  const [timerStatus, setTimerStatus] = useState('stopped'); // running, paused, stopped
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [startTime, setStartTime] = useState(null);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [sessionAccumulatedSeconds, setSessionAccumulatedSeconds] = useState(0);
   const [timeLogs, setTimeLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -18,44 +20,54 @@ const TimeTracker = () => {
     endTime: '',
   });
 
-  // Fetch projects
+  // Fetch projects and restore active timer state
   useEffect(() => {
     fetchProjects();
     checkActiveTimer();
   }, []);
 
-  // Check for active timer on mount
   const checkActiveTimer = () => {
     const activeTimer = localStorage.getItem('activeTimer');
     if (activeTimer) {
-      const { projectId, startTime: storedStartTime } = JSON.parse(activeTimer);
-      const start = new Date(storedStartTime);
-      const now = new Date();
-      const elapsed = Math.floor((now - start) / 1000);
-      
+      const { projectId, sessionId, status, startTime: storedStartTime, accumulatedSeconds } = JSON.parse(activeTimer);
+
       setSelectedProjectId(projectId);
-      setIsRunning(true);
-      setStartTime(start);
-      setElapsedSeconds(elapsed);
+      setTimerSessionId(sessionId);
+      setTimerStatus(status);
+      setSessionAccumulatedSeconds(accumulatedSeconds || 0);
+
+      if (status === 'running' && storedStartTime) {
+        setSessionStartTime(new Date(storedStartTime));
+      }
+
+      if (status !== 'running') {
+        setElapsedSeconds(accumulatedSeconds || 0);
+      }
     }
   };
 
-  // Timer interval
+  // Timer interval update when running
   useEffect(() => {
     let interval;
-    if (isRunning) {
+    if (timerStatus === 'running' && sessionStartTime) {
       interval = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
+        const now = new Date();
+        const sessionSeconds = Math.floor((now - new Date(sessionStartTime)) / 1000);
+        setElapsedSeconds(sessionAccumulatedSeconds + sessionSeconds);
       }, 1000);
+    } else {
+      setElapsedSeconds(sessionAccumulatedSeconds);
     }
-    return () => clearInterval(interval);
-  }, [isRunning]);
 
-  // Fetch time logs when project changes
+    return () => clearInterval(interval);
+  }, [timerStatus, sessionStartTime, sessionAccumulatedSeconds]);
+
+  // Fetch time logs when selected project changes
   useEffect(() => {
     if (selectedProjectId) {
       fetchTimeLogs();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId]);
 
   const fetchProjects = async () => {
@@ -82,43 +94,141 @@ const TimeTracker = () => {
     }
   };
 
-  const handleStartTimer = () => {
+  const updateLocalStorage = (data) => {
+    localStorage.setItem('activeTimer', JSON.stringify(data));
+  };
+
+  const clearLocalStorage = () => {
+    localStorage.removeItem('activeTimer');
+  };
+
+  const startTimer = async () => {
     if (!selectedProjectId) {
       alert('Please select a project first');
       return;
     }
-    const start = new Date();
-    setIsRunning(true);
-    setStartTime(start);
-    setElapsedSeconds(0);
-    
-    // Store in localStorage
-    localStorage.setItem('activeTimer', JSON.stringify({
-      projectId: selectedProjectId,
-      startTime: start.toISOString(),
-    }));
-  };
-
-  const handleStopTimer = async () => {
-    setIsRunning(false);
-
-    const endTime = new Date();
-    const start = startTime;
 
     try {
-      await api.post('/timelogs', {
+      const response = await api.post('/timelogs/start', {
         projectId: selectedProjectId,
-        startTime: start.toISOString(),
-        endTime: endTime.toISOString(),
       });
 
-      alert('Time log saved successfully');
+      const timeLog = response.data.timeLog;
+
+      setTimerSessionId(timeLog._id);
+      setTimerStatus('running');
+      setSessionStartTime(new Date(timeLog.startTime));
+      setSessionAccumulatedSeconds(0);
       setElapsedSeconds(0);
-      setStartTime(null);
-      localStorage.removeItem('activeTimer');
+
+      updateLocalStorage({
+        sessionId: timeLog._id,
+        projectId: selectedProjectId,
+        status: 'running',
+        startTime: timeLog.startTime,
+        accumulatedSeconds: 0,
+      });
+
       fetchTimeLogs();
     } catch (err) {
-      alert(err.response?.data?.message || 'Error saving time log');
+      console.error(err);
+      alert('Error starting timer');
+    }
+  };
+
+  const pauseTimer = async () => {
+    if (!timerSessionId) {
+      alert('No timer session active');
+      return;
+    }
+
+    try {
+      console.log('Pausing timer with ID:', timerSessionId);
+      const response = await api.put(`/timelogs/${timerSessionId}/pause`);
+      const timeLog = response.data.timeLog;
+
+      setTimerStatus('paused');
+      setSessionStartTime(null);
+      setSessionAccumulatedSeconds(Math.round(timeLog.totalDuration * 60));
+      setElapsedSeconds(Math.round(timeLog.totalDuration * 60));
+
+      updateLocalStorage({
+        sessionId: timerSessionId,
+        projectId: selectedProjectId,
+        status: 'paused',
+        accumulatedSeconds: Math.round(timeLog.totalDuration * 60),
+      });
+
+      await fetchTimeLogs();
+    } catch (err) {
+      console.error('Error pausing timer:', err.response?.data || err.message);
+      alert('Error pausing timer: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const resumeTimer = async () => {
+    if (!timerSessionId) {
+      alert('No timer session to resume');
+      return;
+    }
+
+    try {
+      console.log('Resuming timer with ID:', timerSessionId);
+      const response = await api.put(`/timelogs/${timerSessionId}/resume`);
+      const timeLog = response.data.timeLog;
+
+      setTimerStatus('running');
+      setSessionStartTime(new Date(timeLog.startTime));
+
+      updateLocalStorage({
+        sessionId: timerSessionId,
+        projectId: selectedProjectId,
+        status: 'running',
+        startTime: timeLog.startTime,
+        accumulatedSeconds: Math.round(timeLog.totalDuration * 60),
+      });
+
+      await fetchTimeLogs();
+    } catch (err) {
+      console.error('Error resuming timer:', err.response?.data || err.message);
+      alert('Error resuming timer: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const stopTimer = async () => {
+    if (!timerSessionId) {
+      alert('No timer session to stop');
+      return;
+    }
+
+    const description = window.prompt('Enter work description (optional)');
+    
+    // If user clicked Cancel on the prompt
+    if (description === null) {
+      return;
+    }
+
+    try {
+      console.log('Stopping timer with ID:', timerSessionId);
+      const response = await api.put(`/timelogs/${timerSessionId}/stop`, {
+        description: description || '',
+      });
+      
+      console.log('Stop timer response:', response.data);
+
+      setTimerStatus('stopped');
+      setTimerSessionId(null);
+      setSessionStartTime(null);
+      setSessionAccumulatedSeconds(0);
+      setElapsedSeconds(0);
+
+      clearLocalStorage();
+      await fetchTimeLogs();
+
+      alert('Timer stopped and saved successfully');
+    } catch (err) {
+      console.error('Error stopping timer:', err.response?.data || err.message);
+      alert('Error stopping timer: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -179,7 +289,7 @@ const TimeTracker = () => {
               setSelectedProjectId(e.target.value);
               setElapsedSeconds(0);
             }}
-            disabled={isRunning}
+            disabled={timerStatus === 'running'}
           >
             <option value="">Choose a project...</option>
             {projects.map((project) => (
@@ -195,15 +305,34 @@ const TimeTracker = () => {
         </div>
 
         <div className="timer-buttons">
-          {!isRunning ? (
-            <button onClick={handleStartTimer} className="btn-start">
+          {timerStatus === 'stopped' && (
+            <button onClick={startTimer} className="btn-start">
               Start
             </button>
-          ) : (
-            <button onClick={handleStopTimer} className="btn-stop">
-              Stop
-            </button>
           )}
+
+          {timerStatus === 'running' && (
+            <>
+              <button onClick={pauseTimer} className="btn-pause">
+                Pause
+              </button>
+              <button onClick={stopTimer} className="btn-stop">
+                Stop
+              </button>
+            </>
+          )}
+
+          {timerStatus === 'paused' && (
+            <>
+              <button onClick={resumeTimer} className="btn-resume">
+                Resume
+              </button>
+              <button onClick={stopTimer} className="btn-stop">
+                Stop
+              </button>
+            </>
+          )}
+
           <button
             onClick={() => setShowManualModal(true)}
             className="btn-manual"
@@ -225,14 +354,18 @@ const TimeTracker = () => {
                 <th>Start Time</th>
                 <th>End Time</th>
                 <th>Duration (hrs)</th>
+                <th>Status</th>
+                <th>Description</th>
               </tr>
             </thead>
             <tbody>
               {timeLogs.map((log) => (
                 <tr key={log._id}>
-                  <td>{new Date(log.startTime).toLocaleString()}</td>
-                  <td>{new Date(log.endTime).toLocaleString()}</td>
-                  <td>{log.durationHours.toFixed(2)}</td>
+                  <td>{log.startTime ? new Date(log.startTime).toLocaleString() : '-'}</td>
+                  <td>{log.endTime ? new Date(log.endTime).toLocaleString() : '-'}</td>
+                  <td>{log.durationHours ? log.durationHours.toFixed(2) : '0.00'}</td>
+                  <td>{log.status || 'stopped'}</td>
+                  <td>{log.description || '-'}</td>
                 </tr>
               ))}
             </tbody>

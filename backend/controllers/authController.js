@@ -38,7 +38,7 @@ const register = async (req, res) => {
     // Create user
     const user = new User({
       username,
-      email,
+      email: email.toLowerCase(),
       passwordHash,
     });
 
@@ -69,13 +69,21 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Normalize email and allow username login
+    const normalizedEmail = email.toLowerCase();
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      user = await User.findOne({ username: req.body.email });
+    }
+
     console.log('User found:', !!user);
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email/username or password' });
     }
+
+    console.log('User passwordHash exists:', !!user.passwordHash);
 
     console.log('User passwordHash exists:', !!user.passwordHash);
 
