@@ -1,80 +1,64 @@
 /* Dashboard */
 .dashboard-container h1 {
-  margin-bottom: 30px;
-  color: var(--secondary-color);
+  margin-bottom: 28px;
+  color: var(--on-surface);
 }
 
-/* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: 60% 40%;
   gap: 20px;
-  margin-bottom: 40px;
+  margin-bottom: 36px;
 }
 
 .stat-card {
-  background-color: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  border-top: 4px solid var(--primary-color);
-  transition: transform 0.3s ease;
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: 0 20px 32px rgba(25, 28, 29, 0.04);
+  transition: transform var(--transition), box-shadow var(--transition);
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 26px 42px rgba(25, 28, 29, 0.06);
 }
 
 .stat-card h3 {
-  color: var(--dark-gray);
+  color: var(--on-surface-variant);
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 .stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: var(--primary-color);
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--primary);
 }
 
-/* Charts Grid */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 30px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .chart-box {
-  background-color: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: 0 20px 32px rgba(25, 28, 29, 0.04);
 }
 
 .chart-box h3 {
-  margin-bottom: 20px;
-  color: var(--secondary-color);
-  text-align: center;
+  margin-bottom: 18px;
+  color: var(--on-surface);
+  text-align: left;
 }
 
 @media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stat-card {
-    padding: 15px;
-  }
-
-  .stat-value {
-    font-size: 24px;
-  }
+  .stats-grid { grid-template-columns: 1fr; }
+  .chart-box { padding: 18px; }
+  .stat-value { font-size: 1.8rem; }
 }

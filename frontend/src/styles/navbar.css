@@ -1,9 +1,12 @@
 /* Navbar Styles */
 .navbar {
-  background-color: var(--secondary-color);
-  color: white;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: var(--surface-container-low);
+  color: var(--on-surface);
+  padding: 8px 0;
+  box-shadow: 0 10px 24px rgba(25, 28, 29, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .navbar-container {
@@ -16,61 +19,40 @@
 }
 
 .navbar-logo {
-  font-size: 24px;
-  font-weight: bold;
-  color: white;
-  padding: 15px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  padding: 0.75rem 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.5rem;
 }
 
-.navbar-logo:hover {
-  color: var(--primary-color);
-}
+.navbar-logo:hover { color: var(--primary); }
 
-.nav-menu {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
+.nav-menu { display: flex; gap: 16px; align-items: center; }
 
 .nav-link {
-  color: white;
-  padding: 15px 10px;
-  transition: color 0.3s ease;
+  color: var(--on-surface-variant);
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background var(--transition), color var(--transition);
 }
 
-.nav-link:hover {
-  color: var(--primary-color);
-}
+.nav-link:hover { background: rgba(53, 37, 205, 0.12); color: var(--primary); }
 
 .nav-logout {
-  background-color: var(--danger-color);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 5px;
-  font-size: 13px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
 }
 
-.nav-logout:hover {
-  background-color: #c0392b;
-}
+.nav-logout:hover { opacity: 0.95; }
 
 @media (max-width: 768px) {
-  .navbar-container {
-    flex-direction: column;
-    padding: 10px 20px;
-  }
-
-  .nav-menu {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .nav-link,
-  .nav-logout {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
+  .navbar-container { flex-direction: column; gap: 10px; }
+  .nav-menu { flex-wrap: wrap; justify-content: center; }
+  .nav-link, .nav-logout { padding: 8px 10px; font-size: 0.8rem; }
 }

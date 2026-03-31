@@ -364,7 +364,11 @@ const TimeTracker = () => {
                   <td>{log.startTime ? new Date(log.startTime).toLocaleString() : '-'}</td>
                   <td>{log.endTime ? new Date(log.endTime).toLocaleString() : '-'}</td>
                   <td>{log.durationHours ? log.durationHours.toFixed(2) : '0.00'}</td>
-                  <td>{log.status || 'stopped'}</td>
+                  <td>
+                    <span className={`status ${log.status === 'running' ? 'status-active' : log.status === 'paused' ? 'status-inactive' : log.status === 'completed' ? 'status-completed' : 'status-danger'}`}>
+                      {log.status || 'stopped'}
+                    </span>
+                  </td>
                   <td>{log.description || '-'}</td>
                 </tr>
               ))}

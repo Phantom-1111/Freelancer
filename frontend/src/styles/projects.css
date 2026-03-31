@@ -1,8 +1,8 @@
 /* Projects Page */
 .projects-container {
-  background-color: var(--bg-color);
+  background: var(--surface-container-low);
   min-height: calc(100vh - 60px);
-  padding: 30px 20px;
+  padding: 34px 20px;
 }
 
 .projects-header {
@@ -10,74 +10,66 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  gap: 14px;
 }
 
 .projects-header h1 {
-  color: var(--secondary-color);
+  color: var(--on-surface);
 }
 
 .projects-list {
-  background-color: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--surface-container-lowest);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 32px rgba(25, 28, 29, 0.04);
   padding: 20px;
 }
 
 .projects-table {
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
 }
 
-.projects-table thead {
-  background-color: var(--secondary-color);
-  color: white;
+.projects-table thead { visibility: collapse; }
+
+.projects-table tbody tr {
+  background: var(--surface-container-lowest);
+  box-shadow: 0 16px 24px rgba(25, 28, 29, 0.04);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  display: table-row;
 }
 
 .projects-table th,
 .projects-table td {
-  padding: 15px;
+  padding: 14px;
   text-align: left;
 }
 
 .projects-table tbody tr:hover {
-  background-color: var(--light-gray);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 28px rgba(25, 28, 29, 0.06);
 }
 
 .status {
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 7px 12px;
+  border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
+  color: #fff;
   text-transform: capitalize;
 }
 
-.status-active {
-  background-color: #d5f4e6;
-  color: var(--success-color);
-}
-
-.status-inactive {
-  background-color: #fdeaa8;
-  color: var(--warning-color);
-}
-
-.status-completed {
-  background-color: #d6eaf8;
-  color: var(--primary-color);
-}
+.status-active { background: rgba(16, 185, 129, 0.15); color: var(--success-color); }
+.status-inactive { background: rgba(245, 158, 11, 0.15); color: var(--warning-color); }
+.status-completed { background: rgba(79, 70, 229, 0.15); color: var(--primary); }
 
 @media (max-width: 768px) {
-  .projects-header {
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .projects-table {
-    font-size: 12px;
-  }
-
+  .projects-header { flex-direction: column; }
+  .projects-table { font-size: 12px; }
   .projects-table th,
-  .projects-table td {
-    padding: 10px;
-  }
+  .projects-table td { padding: 10px; }
 }
